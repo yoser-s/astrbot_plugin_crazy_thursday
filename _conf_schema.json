@@ -1,0 +1,94 @@
+{
+  "source": {
+    "type": "object",
+    "description": "文案来源",
+    "items": {
+      "provider_order": {
+        "type": "list",
+        "description": "文案源尝试顺序",
+        "default": ["vme", "rsshub"],
+        "hint": "支持 vme / rsshub，按顺序尝试；vme = vme.im 文案（默认按时间倒序取最新），rsshub = Telegram 频道经 RSSHub 中转"
+      },
+      "vme_api": {
+        "type": "string",
+        "description": "vme 接口地址（random 模式用）",
+        "default": "https://vme.im/api/random",
+        "hint": "返回 JSON：{id, body, url, tags…}，免鉴权，国内可直连"
+      },
+      "vme_mode": {
+        "type": "string",
+        "description": "vme 取文案方式：latest=按发布时间从新到旧 / random=随机",
+        "default": "latest",
+        "hint": "latest 走 GitHub issue 列表（vme.im 的数据源），能稳定拿到最新几条；失败自动回退 random"
+      },
+      "vme_repo": {
+        "type": "string",
+        "description": "vme 文案仓库（owner/repo）",
+        "default": "vme-im/vme-content",
+        "hint": "latest 模式读取该仓库的 issue 列表，按创建时间倒序"
+      },
+      "rsshub_instances": {
+        "type": "list",
+        "description": "RSSHub 实例地址（按顺序尝试，失败自动切换）",
+        "default": [
+          "https://rsshub.rssforever.com",
+          "https://rsshub.ktachibana.party",
+          "https://rsshub.liumingye.cn"
+        ],
+        "hint": "三个默认实例实测国内可直连；可替换或换成自建 RSSHub"
+      },
+      "channel": {
+        "type": "string",
+        "description": "Telegram 频道用户名（不带 @）",
+        "default": "crazythu",
+        "hint": "对应 t.me/s/<channel>，需为公开频道"
+      },
+      "timeout": {
+        "type": "int",
+        "description": "单个请求超时（秒）",
+        "default": 12
+      }
+    }
+  },
+  "schedule": {
+    "type": "object",
+    "description": "定时设置",
+    "items": {
+      "weekday": {
+        "type": "int",
+        "description": "每周几发送（1=周一 … 7=周日）",
+        "default": 4,
+        "hint": "默认 4 = 星期四"
+      },
+      "time": {
+        "type": "string",
+        "description": "发送时间（24 小时制 HH:MM）",
+        "default": "09:00"
+      }
+    }
+  },
+  "send": {
+    "type": "object",
+    "description": "发送设置",
+    "items": {
+      "groups": {
+        "type": "list",
+        "description": "目标群号列表",
+        "default": [],
+        "hint": "只发这里列出的群，纯数字 QQ 群号"
+      }
+    }
+  },
+  "filter": {
+    "type": "object",
+    "description": "发送前 AI 审核",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "启用 AI 审核（发送前用当前 LLM 判断文案是否适合群发）",
+        "default": true,
+        "hint": "开启后会从最新文案开始逐条送审，跳过涉政、节日纪念日、违规内容；未配置 LLM 时自动放行"
+      }
+    }
+  }
+}

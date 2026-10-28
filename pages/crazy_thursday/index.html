@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>疯狂星期四</title>
+<script src="/api/plugin/page/bridge-sdk.js"></script>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --line: #e3e5ea;
+    --text: #1f2329;
+    --sub: #6b7280;
+    --brand: #d92b2b;
+    --brand-soft: #fdecec;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Microsoft YaHei", sans-serif;
+    font-size: 14px; line-height: 1.6;
+  }
+  .page { max-width: 980px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  header h1 { font-size: 20px; margin: 0; }
+  header .sub { color: var(--sub); font-size: 12px; }
+
+  .banner {
+    padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px;
+    background: var(--brand-soft); color: var(--brand); border: 1px solid #f8d4d4;
+  }
+  .banner.ok { background: #effaf3; color: #16794a; border-color: #cfead9; }
+  .hidden { display: none !important; }
+
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+  .stat .k { color: var(--sub); font-size: 12px; }
+  .stat .v { font-size: 15px; font-weight: 600; margin-top: 2px; word-break: break-all; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .card h2::before {
+    content: ""; width: 3px; height: 14px; background: var(--brand); border-radius: 2px;
+  }
+  .card .hint { color: var(--sub); font-size: 12px; margin: -4px 0 10px; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row + .row { margin-top: 12px; }
+  label { display: block; color: var(--sub); font-size: 12px; margin-bottom: 6px; }
+  input, select, textarea {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px;
+    background: #fff; color: var(--text); font-size: 14px; font-family: inherit;
+    outline: none; transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--brand); }
+  textarea {
+    resize: vertical; min-height: 84px;
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
+  }
+  .mt { margin-top: 12px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 9px 18px; border-radius: 8px; border: 1px solid var(--line);
+    background: #fff; color: var(--text); font-size: 14px; cursor: pointer;
+    transition: all .15s; font-family: inherit;
+  }
+  .btn:hover { border-color: #c9ccd3; }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .btn.primary:hover { background: #bd2222; }
+  .btn.danger { color: var(--brand); border-color: var(--brand-soft); background: var(--brand-soft); }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+  .preview-text {
+    white-space: pre-wrap; word-break: break-word; background: #fafbfc;
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+    max-height: 320px; overflow-y: auto; margin: 0;
+  }
+  .preview-list { max-height: 560px; overflow-y: auto; display: grid; gap: 10px; }
+  .preview-item {
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+    background: #fafbfc;
+  }
+  .preview-item.blocked { background: #fff8f4; border-color: #f5d9c8; }
+  .preview-item .meta {
+    display: flex; align-items: center; gap: 8px; color: var(--sub);
+    font-size: 12px; margin-bottom: 6px; flex-wrap: wrap;
+  }
+  .preview-item .body { white-space: pre-wrap; word-break: break-word; }
+  .tag {
+    display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 20px;
+    background: var(--brand-soft); color: var(--brand); margin-left: 6px;
+  }
+  .tag.bad { background: #fdefe6; color: #b4571f; }
+  .tag.done { background: #eef1f6; color: #5b6472; margin-left: 0; }
+  .chk { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+  .chk input { width: auto; margin: 0; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+    background: rgba(31, 35, 41, .92); color: #fff; padding: 9px 18px; border-radius: 8px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: all .25s; z-index: 99;
+    max-width: 88vw;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 760px) {
+    body { padding: 12px; }
+    .cards { grid-template-columns: repeat(2, 1fr); }
+    .row { grid-template-columns: 1fr; }
+    .card { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>疯狂星期四</h1>
+    <span class="sub">每周自动发送一条文案</span>
+  </header>
+
+  <div class="banner hidden" id="banner"></div>
+
+  <div class="cards">
+    <div class="stat"><div class="k">下次发送</div><div class="v" id="s-next">-</div></div>
+    <div class="stat"><div class="k">文案缓存</div><div class="v" id="s-cache">-</div></div>
+    <div class="stat"><div class="k">已用过</div><div class="v" id="s-sent">-</div></div>
+    <div class="stat"><div class="k">上次抓取</div><div class="v" id="s-fetch">-</div></div>
+  </div>
+
+  <div class="card">
+    <h2>定时设置</h2>
+    <div class="row">
+      <div>
+        <label for="weekday">每周几</label>
+        <select id="weekday">
+          <option value="" selected disabled>加载中…</option>
+          <option value="1">周一</option>
+          <option value="2">周二</option>
+          <option value="3">周三</option>
+          <option value="4">周四</option>
+          <option value="5">周五</option>
+          <option value="6">周六</option>
+          <option value="7">周日</option>
+        </select>
+      </div>
+      <div>
+        <label for="time">发送时间</label>
+        <input type="time" id="time" value="09:00">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>目标群</h2>
+    <p class="hint">一行一个纯数字 QQ 群号，只发这里列出的群</p>
+    <textarea id="groups" placeholder="123456789&#10;987654321"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>文案来源</h2>
+    <p class="hint">按顺序尝试，前者失败自动降级到后者。vme = vme.im 随机接口；rsshub = Telegram 频道经 RSSHub 中转</p>
+    <div class="row">
+      <div>
+        <label for="providers">源顺序（逗号分隔）</label>
+        <input type="text" id="providers" placeholder="vme,rsshub">
+      </div>
+      <div>
+        <label for="timeout">单次请求超时（秒）</label>
+        <input type="number" id="timeout" min="3" max="60" step="1" value="12">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="vme_mode">vme 取文案方式</label>
+        <select id="vme_mode">
+          <option value="latest">按时间倒序（最新优先）</option>
+          <option value="random">随机</option>
+        </select>
+      </div>
+      <div>
+        <label for="vme_repo">vme 文案仓库</label>
+        <input type="text" id="vme_repo" placeholder="vme-im/vme-content">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="vme_api">vme 接口（random 模式用）</label>
+        <input type="text" id="vme_api" placeholder="https://vme.im/api/random">
+      </div>
+      <div>
+        <label for="channel">Telegram 频道名</label>
+        <input type="text" id="channel" placeholder="crazythu">
+      </div>
+    </div>
+    <label for="instances" class="mt">RSSHub 实例（一行一个）</label>
+    <textarea id="instances" placeholder="https://rsshub.rssforever.com"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>发送前 AI 审核</h2>
+    <p class="hint">开启后，发送前会用机器人当前使用的 LLM 逐条判断文案：涉政、针对特定节日/纪念日、违规内容一律跳过。审核结果会缓存，同一条不会重复送审。</p>
+    <label class="chk"><input type="checkbox" id="filter_enabled" checked> 启用 AI 审核</label>
+    <p class="hint mt" id="filter-note"></p>
+  </div>
+
+  <div class="card">
+    <h2>操作</h2>
+    <div class="actions">
+      <button class="btn primary" id="btn-save">保存配置</button>
+      <button class="btn" id="btn-fetch">刷新缓存</button>
+      <button class="btn" id="btn-preview">预览全部文案</button>
+      <button class="btn" id="btn-review">手动审核缓存</button>
+      <button class="btn danger" id="btn-send">立即发送</button>
+    </div>
+    <p class="hint mt" id="status-line">就绪</p>
+  </div>
+
+  <div class="card hidden" id="preview-box">
+    <h2>全部缓存文案<span class="tag" id="preview-tag"></span></h2>
+    <p class="hint" id="preview-hint"></p>
+    <div class="preview-list" id="preview-list"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // AstrBot 4.29+ 注入 window.AstrBotPluginView，旧版为 AstrBotPluginPage
+  var bridge = window.AstrBotPluginView || window.AstrBotPluginPage || window.bridge || null;
+  var PLUGIN = 'astrbot_plugin_crazy_thursday';
+  var API_BASE = '/api/v1/plugins/extensions/' + PLUGIN + '/';
+  var connected = false;
+  var loaded = false;
+  var sendArmed = false;
+  var toastTimer = null;
+
+  function $(id) { return document.getElementById(id); }
+
+  function toast(msg) {
+    var el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 3000);
+  }
+
+  function status(msg) {
+    $('status-line').textContent = msg;
+  }
+
+  function banner(msg, ok) {
+    var el = $('banner');
+    el.textContent = msg;
+    el.className = 'banner' + (ok ? ' ok' : '');
+  }
+
+  function errText(e) {
+    if (!e) return '请求失败';
+    if (typeof e === 'string') return e;
+    if (e.message) return e.message;
+    if (e.msg) return e.msg;
+    try { return JSON.stringify(e); } catch (_) { return '请求失败'; }
+  }
+
+  function unwrap(r) {
+    if (r && typeof r === 'object') {
+      if (r.status === 'error' || r.status === 'failed') {
+        throw new Error(r.message || r.msg || '请求失败');
+      }
+      if (r.ok === false) {
+        throw new Error(r.message || r.msg || '操作失败');
+      }
+      if (r.ok === true) return r;
+      if (r.data !== undefined && r.data !== null) return r.data;
+    }
+    return r;
+  }
+
+  // 宿主 WebUI 用 Authorization: Bearer <localStorage.token> 鉴权，同源直连需手动带上
+  function authHeaders(extra) {
+    var headers = extra || {};
+    try {
+      var token = window.localStorage && window.localStorage.getItem('token');
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      var locale = window.localStorage && window.localStorage.getItem('astrbot-locale');
+      if (locale) headers['Accept-Language'] = locale;
+    } catch (_) { /* 沙箱内读不到 localStorage 就退回 cookie 鉴权 */ }
+    return headers;
+  }
+
+  // 桥接不可用时的同源直连：宿主真实路径 /api/v1/plugins/extensions/<插件名>/<endpoint>
+  function httpCall(endpoint, body, timeoutMs) {
+    var opt = body === undefined
+      ? {
+          method: 'GET',
+          headers: authHeaders({ 'Accept': 'application/json' }),
+          credentials: 'same-origin'
+        }
+      : {
+          method: 'POST',
+          headers: authHeaders({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }),
+          body: JSON.stringify(body || {}),
+          credentials: 'same-origin'
+        };
+    var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    var timer = null;
+    if (ctrl) {
+      opt.signal = ctrl.signal;
+      timer = setTimeout(function () { ctrl.abort(); }, timeoutMs || 25000);
+    }
+    return fetch(API_BASE + endpoint, opt).then(function (r) {
+      if (timer) clearTimeout(timer);
+      return r.text().then(function (raw) {
+        var j = null;
+        try { j = raw ? JSON.parse(raw) : null; } catch (_) { j = null; }
+        if (j && typeof j === 'object') {
+          if (j.status === 'error' || j.status === 'failed') {
+            throw new Error(j.message || j.msg || '请求失败');
+          }
+          if (!r.ok) throw new Error(j.message || j.msg || ('HTTP ' + r.status));
+          return unwrap(j);
+        }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return raw;
+      });
+    }, function (e) {
+      if (timer) clearTimeout(timer);
+      throw new Error(e && e.name === 'AbortError' ? '请求超时' : '网络错误');
+    });
+  }
+
+  function bridgeCall(endpoint, body, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error('请求超时（' + Math.round((timeoutMs || 25000) / 1000) + 's）'));
+      }, timeoutMs || 25000);
+
+      var p = (body === undefined) ? bridge.apiGet(endpoint) : bridge.apiPost(endpoint, body);
+      Promise.resolve(p).then(function (res) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        try { resolve(unwrap(res)); } catch (e) { reject(e); }
+      }, function (err) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        reject(err instanceof Error ? err : new Error(errText(err)));
+      });
+    });
+  }
+
+  // 优先走桥接；桥接缺失或报错时降级为同源 fetch
+  function call(endpoint, body, timeoutMs) {
+    var hasBridge = bridge && typeof bridge.apiGet === 'function';
+    if (!hasBridge) return httpCall(endpoint, body, timeoutMs);
+    return bridgeCall(endpoint, body, timeoutMs).catch(function (err) {
+      return httpCall(endpoint, body, timeoutMs).then(function (r) {
+        connected = true;
+        return r;
+      }, function () {
+        throw err;
+      });
+    });
+  }
+
+  function busy(btn, on) { btn.disabled = on; }
+
+  async function load() {
+    var d = await call('status');
+    $('weekday').value = String(d.weekday || 4);
+    $('time').value = d.time || '09:00';
+    $('timeout').value = d.timeout || 12;
+    $('channel').value = d.channel || '';
+    $('vme_api').value = d.vme_api || '';
+    $('vme_mode').value = d.vme_mode === 'random' ? 'random' : 'latest';
+    $('vme_repo').value = d.vme_repo || '';
+    $('groups').value = (d.groups || []).join('\n');
+    $('instances').value = (d.rsshub_instances || []).join('\n');
+    $('providers').value = (d.provider_order || []).join(',');
+    $('filter_enabled').checked = d.filter_enabled !== false;
+    $('filter-note').textContent = d.filter_enabled === false
+      ? '当前未启用：所有文案都会直接发送。'
+      : '当前已启用：审核不通过的文案会跳过（已判定 ' + (d.blocked_count || 0) + ' 条不通过）。';
+    $('s-next').textContent = d.next_run || '-';
+    $('s-cache').textContent = (d.cache_count || 0) + ' 条 / 剩 ' + (d.remaining || 0)
+      + (d.blocked_count ? ' / 跳过 ' + d.blocked_count : '');
+    $('s-sent').textContent = (d.sent_count || 0) + ' 条';
+    $('s-fetch').textContent = d.last_fetch || '从未';
+    loaded = true;
+    if (d.last_source) status('上次抓取来源：' + d.last_source);
+  }
+
+  function payload() {
+    var providers = $('providers').value.split(/[,，\s]+/).filter(Boolean);
+    var groups = $('groups').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    var instances = $('instances').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    return {
+      groups: groups,
+      weekday: parseInt($('weekday').value, 10),
+      time: $('time').value,
+      provider_order: providers,
+      vme_api: $('vme_api').value.trim(),
+      vme_mode: $('vme_mode').value,
+      vme_repo: $('vme_repo').value.trim(),
+      channel: $('channel').value.trim(),
+      timeout: parseInt($('timeout').value, 10),
+      rsshub_instances: instances,
+      filter_enabled: $('filter_enabled').checked
+    };
+  }
+
+  async function save() {
+    if (!loaded) {
+      toast('配置尚未加载，请刷新页面后再保存');
+      status('配置未加载，已阻止保存');
+      return;
+    }
+    var btn = $('btn-save');
+    busy(btn, true);
+    status('保存中…');
+    try {
+      var d = await call('save_config', payload());
+      toast('已保存');
+      status('已保存，下次发送：' + (d.next_run || '-'));
+      await load();
+    } catch (e) {
+      status('保存失败：' + errText(e));
+      toast(errText(e));
+    } finally {
+      busy(btn, false);
+    }
+  }
+
+  async function fetchCache() {
+    var btn = $('btn-fetch');
+    busy(btn, true);
+    status('抓取中，请稍候…');
+    try {
+      var d = await call('fetch', {}, 40000);
+      toast('抓取成功：' + d.fetched + ' 条');
+      status('抓取成功，来源 ' + (d.source || '-') + '，缓存共 ' + d.cache_count + ' 条');
+      await load();
+    } catch (e) {
+      status('抓取失败：' + errText(e));
+      toast(errText(e));
+    } finally {
+      busy(btn, false);
+    }
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function renderPreview(d, extra) {
+    var items = d.items || [];
+    $('preview-box').classList.remove('hidden');
+    $('preview-tag').textContent = '共 ' + (d.total || 0) + ' 条 / 跳过 ' + (d.blocked || 0)
+      + ' 条 / 未审核 ' + (d.pending || 0) + ' 条';
+    $('preview-hint').textContent = (d.filter_enabled === false
+      ? 'AI 审核已关闭，全部条目都会参与发送。'
+      : '按 ' + (d.review_day || '下次发送日') + ' 这个发送日期审核；'
+        + '灰底为 AI 判定不适合、不会发送的条目，未审核的会在发送时逐条判断。')
+      + (extra || '');
+
+    if (!items.length) {
+      $('preview-list').innerHTML = '<p class="hint">缓存为空，请先点"刷新缓存"。</p>';
+      return;
+    }
+    $('preview-list').innerHTML = items.map(function (it) {
+      var tags = '';
+      if (it.sent) tags += '<span class="tag done">已发送</span>';
+      if (it.review === 'pending') tags += '<span class="tag done">未审核</span>';
+      if (it.blocked) tags += '<span class="tag bad">AI 跳过 · ' + esc(it.reason || '不合适') + '</span>';
+      return '<div class="preview-item' + (it.blocked ? ' blocked' : '') + '">'
+        + '<div class="meta"><span>' + esc(it.date || '无发布时间') + '</span>' + tags + '</div>'
+        + '<div class="body">' + esc(it.text) + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  async function preview() {
+    var btn = $('btn-preview');
+    busy(btn, true);
+    status('正在读取缓存…');
+    try {
+      var d = await call('preview', {}, 30000);
+      renderPreview(d);
+      status('预览完成，共 ' + (d.total || 0) + ' 条');
+    } catch (e) {
+      status('预览失败：' + errText(e));
+      toast(errText(e));
+    } finally {
+      busy(btn, false);
+    }
+  }
+
+  async function reviewAll() {
+    var btn = $('btn-review');
+    busy(btn, true);
+    status('正在让 AI 审核缓存文案，条数多时需要等一会儿…');
+    try {
+      var d = await call('review', {}, 600000);
+      renderPreview(d, d.reviewed ? '（本次新送审 ' + d.reviewed + ' 条）' : '（没有待审核的条目）');
+      status('审核完成，本次送审 ' + (d.reviewed || 0) + ' 条');
+    } catch (e) {
+      status('审核失败：' + errText(e));
+      toast(errText(e));
+    } finally {
+      busy(btn, false);
+    }
+  }
+
+  async function send() {
+    // iframe 内 confirm 被禁用，改为二次点击确认
+    if (!sendArmed) {
+      sendArmed = true;
+      toast('再点一次，确认立即发送到配置的群');
+      status('等待二次确认…');
+      setTimeout(function () { sendArmed = false; }, 4000);
+      return;
+    }
+    sendArmed = false;
+
+    var btn = $('btn-send');
+    busy(btn, true);
+    status('发送中…');
+    try {
+      var d = await call('send', {}, 60000);
+      toast('发送完成');
+      status('发送完成：' + d.success + '/' + d.total + ' 个群成功');
+      await load();
+    } catch (e) {
+      status('发送失败：' + errText(e));
+      toast(errText(e));
+    } finally {
+      busy(btn, false);
+    }
+  }
+
+  // 先绑事件，避免 bridge.ready() 未就绪时按钮全部失效
+  $('btn-save').addEventListener('click', save);
+  $('btn-fetch').addEventListener('click', fetchCache);
+  $('btn-preview').addEventListener('click', preview);
+  $('btn-review').addEventListener('click', reviewAll);
+  $('btn-send').addEventListener('click', send);
+
+  (async function boot() {
+    var hasBridge = bridge && typeof bridge.apiGet === 'function';
+    if (hasBridge && typeof bridge.ready === 'function') {
+      try {
+        await Promise.race([
+          bridge.ready(),
+          new Promise(function (_, reject) {
+            setTimeout(function () { reject(new Error('宿主未响应')); }, 8000);
+          })
+        ]);
+      } catch (_) { /* 桥接未就绪也没关系，下面还有同源直连兜底 */ }
+    }
+    try {
+      await load();
+      connected = true;
+      banner(hasBridge ? '已连接 WebUI，插件页面可用' : '已通过同源接口读取配置', true);
+      status('就绪');
+    } catch (e) {
+      banner('读取配置失败（' + errText(e) + '）。请从机器人 WebUI 的插件页面打开，不要直接用文件方式打开。');
+      status('读取配置失败');
+    }
+  })();
+})();
+</script>
+</body>
+</html>

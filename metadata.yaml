@@ -1,0 +1,10 @@
+name: astrbot_plugin_crazy_thursday
+desc: 每周四定时向指定群发送一条疯狂星期四文案（vme.im / RSSHub 多源可插拔）
+author: yosers
+version: 1.0.0
+display_name: 疯狂星期四
+short_desc: 每周四准时 V 我 50
+license: MIT
+support_platforms: [aiocqhttp]
+astrbot_version: ">=4.16,<5"
+tags: [疯狂星期四, 定时, 文案, kfc]
