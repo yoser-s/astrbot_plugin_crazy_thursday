@@ -62,13 +62,21 @@ REVIEW_SYSTEM_PROMPT = (
     "1) 涉及政治、领导人、政党、政权、体制、历史政治事件、分裂主张等敏感内容，"
     "包括以影射、隐喻、谐音、代称、戏谑方式出现的政治话题"
     "（例如摄政、朝堂、宫廷政治、政变、政权更替等）；\n"
-    "2) 内容与某个特定节日、纪念日或社会事件强绑定，而计划发送日期和该节日对不上"
-    "（例如节日已过去很久还发节日文案，或节日还远未到来）；"
-    "注意：只是出现节日字样不算问题，只要结合日期看是应景、得体的就应当通过；\n"
+    "2) 文案以某个节日、纪念日或社会事件为引子或主题，且与计划发送日期明显错位。"
+    "判断标准：只要文案里出现该节日的名称、别称、典型习俗或应景表达"
+    "（例如“七夕”“牛郎织女”“中秋”“月饼”“国庆”“圣诞”），就视为以这个节日为主题，"
+    "不论它只是开头一句还是只占一小部分。此时若发送日期与该节日大致同期"
+    "（同月或相邻月份，前后约 1 个月内），视为应景，应当通过；"
+    "若相差超过约 1 个月，或该节日已过去很久、远未到来，则一律不通过"
+    "（例如 11 月发“七夕”、3 月发“圣诞”不通过）。"
+    "常见农历节日的大致公历时段：春节 1~2 月，元宵 2 月，清明 4 月，端午 5~6 月，"
+    "七夕 8 月，中秋 9~10 月上旬，重阳 10 月，腊八与小年 1 月；公历节日按固定日期判断；\n"
     "3) 含色情、暴力、赌博、诈骗、违法引导、辱骂歧视等违规内容。\n"
+    "注意：只有文案完全没有涉及任何节日/纪念日时，才不需要考虑日期是否吻合。\n"
     "只输出一行 JSON，不要任何解释或代码块：\n"
     '{"pass": true 或 false, "reason": "不通过时用不超过 20 字说明原因，通过时留空"}'
 )
+REVIEW_VERSION = 2  # 提示词口径变更时递增，旧缓存自动失效
 REVIEW_MAX_CANDIDATES = 8  # 一次发送最多审核这么多条，避免刷爆 LLM
 REVIEW_WORKERS = 4  # 手动审核时的并发数
 
@@ -280,9 +288,9 @@ class CrazyThursdayPlugin(Star):
             cand = datetime.now(TZ8)
         return cand.strftime("%Y-%m-%d")
 
-    def _review_prompt(self, text: str) -> str:
+    def _review_prompt(self, text: str, day: str = None) -> str:
         today = datetime.now(TZ8)
-        day = self._review_day()
+        day = day or self._review_day()
         try:
             send_day = datetime.strptime(day, "%Y-%m-%d")
         except ValueError:
@@ -298,21 +306,24 @@ class CrazyThursdayPlugin(Star):
             )
         )
 
-    def _cached_verdict(self, text: str):
-        """返回 (ok, reason)；没有可用缓存（含换了发送日期）时返回 None"""
+    def _cached_verdict(self, text: str, day: str = None):
+        """返回 (ok, reason)；没有可用缓存（换日期或换口径）时返回 None"""
         item = self._review_cache().get(self._text_digest(text))
         if not isinstance(item, dict) or "ok" not in item:
             return None
-        if item.get("day") != self._review_day():
+        if item.get("v") != REVIEW_VERSION:
+            return None
+        if item.get("day") != (day or self._review_day()):
             return None
         return bool(item["ok"]), str(item.get("reason") or "")
 
-    def _save_verdict(self, text: str, ok: bool, reason: str):
+    def _save_verdict(self, text: str, ok: bool, reason: str, day: str = None):
         cache = self._review_cache()
         cache[self._text_digest(text)] = {
             "ok": bool(ok),
             "reason": reason,
-            "day": self._review_day(),
+            "day": day or self._review_day(),
+            "v": REVIEW_VERSION,
             "ts": int(datetime.now(TZ8).timestamp()),
         }
         if len(cache) > 800:  # 简单截断，保留最近的一批
@@ -320,14 +331,15 @@ class CrazyThursdayPlugin(Star):
             cache = dict(keep)
         self._save_json(self._review_file, cache)
 
-    async def _ai_review(self, text: str, force: bool = False) -> tuple:
+    async def _ai_review(self, text: str, force: bool = False, day: str = None) -> tuple:
         """返回 (是否通过, 原因)；审核关闭或 LLM 不可用时一律放行"""
+        day = day or self._review_day()
         if not text:
             return False, "文案为空"
         if not self._filter_enabled():
             return True, ""
         if not force:
-            cached = self._cached_verdict(text)
+            cached = self._cached_verdict(text, day)
             if cached is not None:
                 return cached
 
@@ -343,7 +355,7 @@ class CrazyThursdayPlugin(Star):
         try:
             resp = await asyncio.wait_for(
                 provider.text_chat(
-                    prompt=self._review_prompt(text), system_prompt=REVIEW_SYSTEM_PROMPT
+                    prompt=self._review_prompt(text, day), system_prompt=REVIEW_SYSTEM_PROMPT
                 ),
                 timeout=45,
             )
@@ -364,7 +376,7 @@ class CrazyThursdayPlugin(Star):
         else:
             logger.warning("[%s] AI 审核返回无法解析：%s" % (PLUGIN_NAME, answer[:120]))
 
-        self._save_verdict(text, ok, reason)
+        self._save_verdict(text, ok, reason, day)
         return ok, reason
 
     def _blocked_count(self, posts: list) -> int:
@@ -730,9 +742,12 @@ class CrazyThursdayPlugin(Star):
                 posts = []
             source = "缓存"
 
+        # 审核按「实际发送当天」判断（定时触发时就是今天），
+        # 不能用 _review_day()——那返回的是下一次计划日期，会导致拿错误日期送审
+        send_day = datetime.now(TZ8).strftime("%Y-%m-%d")
         # 从最新的开始逐条送 AI 审核，第一条通过的才发送
         for item in self._candidates(posts, state)[:REVIEW_MAX_CANDIDATES]:
-            ok, reason = await self._ai_review(item.get("text", ""))
+            ok, reason = await self._ai_review(item.get("text", ""), day=send_day)
             if ok:
                 return item.get("text", ""), item.get("guid", ""), source
             logger.info(
