@@ -168,7 +168,7 @@ def parse_rss(xml_text: str) -> list:
     return posts
 
 
-@register(PLUGIN_NAME, "yosers", "每周四定时发送疯狂星期四文案", "v1.0.0")
+@register(PLUGIN_NAME, "yosers", "每周四定时发送疯狂星期四文案", "v1.0.1")
 class CrazyThursdayPlugin(Star):
     CONFIG_GROUPS = ("source", "schedule", "send", "filter")
 
